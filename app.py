@@ -161,7 +161,8 @@ try:
     st.line_chart(
         model_data.set_index("Th_C")["Qcmax_W"]
     )
-
+except Exception as e:
+    st.error(f"Database error: {e}")
 
 st.divider()
 
