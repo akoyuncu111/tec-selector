@@ -2,7 +2,13 @@
 import streamlit as st
 
 import pandas as pd
-from tec_engine import load_database, interpolate_tec
+
+
+from tec_engine import (
+    load_database,
+    interpolate_tec,
+    optimize_multi_tec
+)
 
 st.set_page_config(
     page_title="TEC Selector",
@@ -361,3 +367,126 @@ try:
 
 except Exception as e:
     st.error(f"Performance data error: {e}")
+
+# ==========================================
+# 7. Multi-TEC Optimization
+# ==========================================
+
+st.divider()
+
+st.header("7. Multi-TEC COP Optimization")
+
+st.info(
+    "Identical single-stage TECs operating "
+    "at the same hot-side temperature and Delta T."
+)
+
+if st.button(
+    "Optimize Multi-TEC Configuration",
+    type="primary",
+    use_container_width=True
+):
+
+    try:
+        performance_df = pd.read_csv(
+            "tec_performance.csv"
+        )
+
+        optimization = optimize_multi_tec(
+            performance_df=performance_df,
+            model=selected_tec,
+            Th=t_hot,
+            dT=delta_t,
+            Qload=q_load,
+            max_tec=max_tec
+        )
+
+        if optimization.empty:
+
+            st.warning(
+                "No configuration found within "
+                "the available manufacturer data."
+            )
+
+        else:
+
+            st.success(
+                f"{len(optimization)} configurations evaluated."
+            )
+
+            st.subheader("Configuration Comparison")
+
+            st.dataframe(
+                optimization.style.format({
+                    "Qc per TEC (W)": "{:.2f}",
+                    "Current per TEC (A)": "{:.3f}",
+                    "Voltage per TEC (V)": "{:.3f}",
+                    "Total Power (W)": "{:.2f}",
+                    "System COP": "{:.3f}",
+                    "Total Qh (W)": "{:.2f}"
+                }),
+                use_container_width=True,
+                hide_index=True
+            )
+
+            st.subheader("COP vs TEC Count")
+
+            chart_data = optimization.sort_values(
+                "TEC Count"
+            )
+
+            st.line_chart(
+                chart_data.set_index(
+                    "TEC Count"
+                )["System COP"],
+                x_label="Number of TECs",
+                y_label="System COP"
+            )
+
+            best = optimization.iloc[0]
+
+            st.subheader("Highest COP Configuration")
+
+            c1, c2, c3 = st.columns(3)
+
+            c1.metric(
+                "TEC Count",
+                f"{int(best['TEC Count'])}"
+            )
+
+            c2.metric(
+                "System COP",
+                f"{best['System COP']:.3f}"
+            )
+
+            c3.metric(
+                "Total Power",
+                f"{best['Total Power (W)']:.2f} W"
+            )
+
+            st.write(
+                f"Current per TEC: "
+                f"{best['Current per TEC (A)']:.3f} A"
+            )
+
+            st.write(
+                f"Voltage per TEC: "
+                f"{best['Voltage per TEC (V)']:.3f} V"
+            )
+
+            st.write(
+                f"Total heat rejection: "
+                f"{best['Total Qh (W)']:.2f} W"
+            )
+
+            st.caption(
+                "Preliminary electrical optimization. "
+                "Mechanical fit and thermal interfaces "
+                "have not yet been evaluated."
+            )
+
+    except Exception as e:
+
+        st.error(
+            f"Optimization error: {e}"
+        )
