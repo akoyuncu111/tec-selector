@@ -2,6 +2,7 @@
 import streamlit as st
 
 import pandas as pd
+from tec_engine import load_database, interpolate_tec
 
 st.set_page_config(
     page_title="TEC Selector",
@@ -161,5 +162,76 @@ try:
         model_data.set_index("Th_C")["Qcmax_W"]
     )
 
+
+st.divider()
+
+st.header("5. TEC Performance Calculation")
+
+try:
+    database = load_database()
+
+    model_names = database["model"].unique()
+
+    selected_tec = st.selectbox(
+        "TEC Model for Calculation",
+        model_names,
+        key="calculation_model"
+    )
+
+    if st.button("Calculate TEC Parameters"):
+
+        result = interpolate_tec(
+            selected_tec,
+            t_hot,
+            database
+        )
+
+        st.success(
+            "Catalog interpolation completed."
+        )
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.metric(
+                "Qcmax",
+                f"{result['Qcmax_W']:.2f} W"
+            )
+
+        with col2:
+            st.metric(
+                "Delta Tmax",
+                f"{result['dTmax_C']:.2f} °C"
+            )
+
+        with col3:
+            st.metric(
+                "Imax",
+                f"{result['Imax_A']:.2f} A"
+            )
+
+        st.write("Interpolated catalog parameters:")
+
+        st.dataframe(
+            pd.DataFrame([result]),
+            hide_index=True
+        )
+
+        if delta_t >= result["dTmax_C"]:
+            st.error(
+                "Requested Delta T reaches or exceeds "
+                "the catalog maximum. The required "
+                "positive cooling load cannot be met "
+                "at this operating condition."
+            )
+        else:
+            st.info(
+                "Temperature range check passed. "
+                "Cooling capacity at the requested "
+                "Delta T still requires calculation."
+            )
+
+except Exception as e:
+    st.error(str(e))
 except Exception as e:
     st.error(f"Database error: {e}")
