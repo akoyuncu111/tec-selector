@@ -236,3 +236,128 @@ except Exception as e:
     st.error(str(e))
 except Exception as e:
     st.error(f"Database error: {e}")
+
+# ==========================================
+# 6. Manufacturer Performance Curves
+# ==========================================
+
+st.divider()
+
+st.header("6. Manufacturer Performance Curves")
+
+try:
+    performance_df = pd.read_csv("tec_performance.csv")
+
+    # Select only the required operating conditions
+    perf = performance_df[
+        (performance_df["model"] == selected_tec)
+        & (performance_df["Th_C"] == t_hot)
+        & (performance_df["dT_C"] == delta_t)
+    ].copy()
+
+    if perf.empty:
+        st.warning(
+            "No manufacturer performance data available "
+            "for the selected model, Th and Delta T."
+        )
+
+    else:
+        perf = perf.sort_values("I_A")
+
+        # Electrical power
+        perf["P_W"] = (
+            perf["I_A"] * perf["V_V"]
+        )
+
+        # COP calculation
+        perf["COP"] = (
+            perf["Qc_W"] / perf["P_W"]
+        )
+
+        # Heat rejected to hot side
+        perf["Qh_W"] = (
+            perf["Qc_W"] + perf["P_W"]
+        )
+
+        st.success(
+            f"{len(perf)} manufacturer data points loaded."
+        )
+
+        # Performance table
+        st.subheader("Performance Data")
+
+        st.dataframe(
+            perf[
+                ["I_A", "V_V", "Qc_W",
+                 "P_W", "COP", "Qh_W"]
+            ].style.format({
+                "I_A": "{:.2f}",
+                "V_V": "{:.2f}",
+                "Qc_W": "{:.2f}",
+                "P_W": "{:.2f}",
+                "COP": "{:.3f}",
+                "Qh_W": "{:.2f}"
+            }),
+            use_container_width=True,
+            hide_index=True
+        )
+
+        # COP vs Current
+        st.subheader("COP vs Current")
+
+        st.line_chart(
+            perf.set_index("I_A")["COP"],
+            x_label="Current (A)",
+            y_label="COP"
+        )
+
+        # Cooling capacity vs Current
+        st.subheader("Cooling Capacity vs Current")
+
+        st.line_chart(
+            perf.set_index("I_A")["Qc_W"],
+            x_label="Current (A)",
+            y_label="Qc (W)"
+        )
+
+        # Electrical power vs Current
+        st.subheader("Electrical Power vs Current")
+
+        st.line_chart(
+            perf.set_index("I_A")["P_W"],
+            x_label="Current (A)",
+            y_label="Electrical Power (W)"
+        )
+
+        # Maximum COP among sampled points
+        best_idx = perf["COP"].idxmax()
+        best = perf.loc[best_idx]
+
+        st.subheader("Highest COP Among Sampled Points")
+
+        c1, c2, c3 = st.columns(3)
+
+        c1.metric(
+            "COP",
+            f"{best['COP']:.3f}"
+        )
+
+        c2.metric(
+            "Current",
+            f"{best['I_A']:.2f} A"
+        )
+
+        c3.metric(
+            "Cooling Capacity",
+            f"{best['Qc_W']:.2f} W"
+        )
+
+        st.caption(
+            "This result considers only the sampled "
+            "manufacturer data points. It does not "
+            "yet account for the requested total heat "
+            "load, mechanical constraints or multiple TECs."
+        )
+
+except Exception as e:
+    st.error(f"Performance data error: {e}")
