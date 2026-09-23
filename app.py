@@ -1,6 +1,8 @@
 
 import streamlit as st
 
+import pandas as pd
+
 st.set_page_config(
     page_title="TEC Selector",
     page_icon="❄️",
@@ -124,3 +126,40 @@ if st.button(
     )
 
     st.write(f"Maximum TEC Count: {max_tec}")
+
+
+st.divider()
+
+st.header("4. Tark TEC Database")
+
+try:
+    df = pd.read_csv("tec_database.csv")
+
+    st.success(
+        f"Database loaded successfully: "
+        f"{df['model'].nunique()} TEC model(s)"
+    )
+
+    selected_model = st.selectbox(
+        "Select TEC Model",
+        df["model"].unique()
+    )
+
+    model_data = df[
+        df["model"] == selected_model
+    ]
+
+    st.dataframe(
+        model_data,
+        use_container_width=True,
+        hide_index=True
+    )
+
+    st.subheader("Qcmax vs Hot Side Temperature")
+
+    st.line_chart(
+        model_data.set_index("Th_C")["Qcmax_W"]
+    )
+
+except Exception as e:
+    st.error(f"Database error: {e}")
